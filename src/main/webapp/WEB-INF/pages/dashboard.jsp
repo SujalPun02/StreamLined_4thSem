@@ -1,144 +1,246 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
+<%@ page import="java.util.List" %>
+<%@ page import="com.StreamLined.model.Movie" %>
+<%@ page import="com.StreamLined.model.User" %>
+
+<%!
+    private String getPosterSrc(jakarta.servlet.http.HttpServletRequest request, Movie movie) {
+        if (movie == null || movie.getPosterUrl() == null || movie.getPosterUrl().trim().isEmpty()) {
+            return "";
+        }
+
+        String posterUrl = movie.getPosterUrl().trim();
+
+        if (posterUrl.startsWith("http://") || posterUrl.startsWith("https://")) {
+            return posterUrl;
+        }
+
+        return request.getContextPath() + "/" + posterUrl;
+    }
+%>
+
+<%
+    User user = (User) session.getAttribute("user");
+
+    if (user == null) {
+        response.sendRedirect(request.getContextPath() + "/login");
+        return;
+    }
+
+    List<Movie> topMovies = (List<Movie>) request.getAttribute("topMovies");
+    List<Movie> allMovies = (List<Movie>) request.getAttribute("allMovies");
+    List<Movie> watchlist = (List<Movie>) request.getAttribute("watchlist");
+    String errorMsg = (String) request.getAttribute("error");
+%>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>StreamLined – Dashboard</title>
-    <link rel="stylesheet" href="${pageContext.request.contextPath}/style.css">
+    <link rel="stylesheet" href="<%= request.getContextPath() %>/style.css">
 </head>
+
 <body>
 
-<%-- ═══════════════════ HEADER ═══════════════════ --%>
 <header class="site-header">
     <div class="header-inner">
-        <a href="${pageContext.request.contextPath}/dashboard" class="site-logo">
+
+        <a href="<%= request.getContextPath() %>/dashboard" class="site-logo">
             <span class="logo-icon">▶</span> StreamLined
         </a>
+
         <nav class="site-nav">
-            <a href="${pageContext.request.contextPath}/dashboard" class="active">Home</a>
-            <a href="${pageContext.request.contextPath}/movies">Movies</a>
-            <c:if test="${sessionScope.user.admin}">
-                <a href="${pageContext.request.contextPath}/admin">Admin</a>
-            </c:if>
+            <a href="<%= request.getContextPath() %>/dashboard" class="active">Home</a>
+            <a href="<%= request.getContextPath() %>/movies">Movies</a>
+
+            <% if (user.isAdmin()) { %>
+                <a href="<%= request.getContextPath() %>/admin">Admin</a>
+            <% } %>
         </nav>
+
         <div class="header-user">
-            <span>Hi, <strong>${sessionScope.user.username}</strong></span>
-            <a href="${pageContext.request.contextPath}/logout" class="btn btn-outline btn-sm">Logout</a>
+            <span>Hi, <strong><%= user.getUsername() %></strong></span>
+            <a href="<%= request.getContextPath() %>/logout" class="btn btn-outline btn-sm">Logout</a>
         </div>
+
     </div>
 </header>
 
 <main class="main-content">
+    <div class="container">
 
-    <%-- Error banner --%>
-    <c:if test="${not empty requestScope.error}">
-        <div class="alert alert-error container">${requestScope.error}</div>
-    </c:if>
+        <% if (errorMsg != null && !errorMsg.trim().isEmpty()) { %>
+            <div class="alert alert-error">
+                <%= errorMsg %>
+            </div>
+        <% } %>
 
-    <%-- ═══════════════════ HERO / TOP PICKS ═══════════════════ --%>
-    <section class="hero-section">
-        <div class="container">
+        <!-- Top Movies Section -->
+        <section class="catalog-section">
             <h1 class="section-title">Top Picks for You</h1>
-            <div class="movie-grid">
-                <c:forEach var="movie" items="${requestScope.topMovies}">
-                    <a href="${pageContext.request.contextPath}/movies?id=${movie.movieId}" class="movie-card">
-                        <div class="movie-poster">
-                            <c:choose>
-                                <c:when test="${not empty movie.posterUrl}">
-                                    <img src="${movie.posterUrl}" alt="${movie.title}" loading="lazy">
-                                </c:when>
-                                <c:otherwise>
-                                    <div class="poster-placeholder">▶</div>
-                                </c:otherwise>
-                            </c:choose>
-                            <div class="movie-overlay">
-                                <span class="movie-rating">${movie.starRating}</span>
-                            </div>
-                        </div>
-                        <div class="movie-info">
-                            <h3 class="movie-title">${movie.title}</h3>
-                            <p class="movie-meta">${movie.genre} · ${movie.releaseYear}</p>
-                        </div>
-                    </a>
-                </c:forEach>
-            </div>
-        </div>
-    </section>
 
-    <%-- ═══════════════════ WATCHLIST ═══════════════════ --%>
-    <section class="watchlist-section">
-        <div class="container">
+            <% if (topMovies == null || topMovies.isEmpty()) { %>
+
+                <p class="empty-state">No top movies available.</p>
+
+            <% } else { %>
+
+                <div class="movie-grid">
+
+                    <% for (Movie movie : topMovies) { %>
+
+                        <a href="<%= request.getContextPath() %>/movies?id=<%= movie.getMovieId() %>"
+                           class="movie-card">
+
+                            <div class="movie-poster">
+                                <%
+                                    String posterSrc = getPosterSrc(request, movie);
+                                %>
+
+                                <% if (posterSrc != null && !posterSrc.trim().isEmpty()) { %>
+                                    <img src="<%= posterSrc %>"
+                                         alt="<%= movie.getTitle() %>"
+                                         loading="lazy">
+                                <% } else { %>
+                                    <div class="poster-placeholder">▶</div>
+                                <% } %>
+
+                                <div class="movie-overlay">
+                                    <span class="movie-rating">
+                                        <%= movie.getStarRating() %>
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div class="movie-info">
+                                <h3 class="movie-title"><%= movie.getTitle() %></h3>
+                                <p class="movie-meta">
+                                    <%= movie.getGenre() %> · <%= movie.getReleaseYear() %>
+                                </p>
+                            </div>
+
+                        </a>
+
+                    <% } %>
+
+                </div>
+
+            <% } %>
+        </section>
+
+        <!-- Watchlist Section -->
+        <section class="catalog-section">
             <h2 class="section-title">My Watchlist</h2>
-            <c:choose>
-                <c:when test="${empty requestScope.watchlist}">
-                    <p class="empty-state">
-                        Your watchlist is empty.
-                        <a href="${pageContext.request.contextPath}/movies">Browse movies</a> to add some.
-                    </p>
-                </c:when>
-                <c:otherwise>
-                    <div class="movie-grid">
-                        <c:forEach var="movie" items="${requestScope.watchlist}">
-                            <a href="${pageContext.request.contextPath}/movies?id=${movie.movieId}" class="movie-card">
-                                <div class="movie-poster">
-                                    <c:choose>
-                                        <c:when test="${not empty movie.posterUrl}">
-                                            <img src="${movie.posterUrl}" alt="${movie.title}" loading="lazy">
-                                        </c:when>
-                                        <c:otherwise>
-                                            <div class="poster-placeholder">▶</div>
-                                        </c:otherwise>
-                                    </c:choose>
-                                    <div class="movie-overlay">
-                                        <span class="movie-rating">${movie.starRating}</span>
-                                    </div>
-                                </div>
-                                <div class="movie-info">
-                                    <h3 class="movie-title">${movie.title}</h3>
-                                    <p class="movie-meta">${movie.genre} · ${movie.releaseYear}</p>
-                                </div>
-                            </a>
-                        </c:forEach>
-                    </div>
-                </c:otherwise>
-            </c:choose>
-        </div>
-    </section>
 
-    <%-- ═══════════════════ ALL MOVIES ═══════════════════ --%>
-    <section class="all-movies-section">
-        <div class="container">
-            <h2 class="section-title">All Movies</h2>
-            <div class="movie-grid">
-                <c:forEach var="movie" items="${requestScope.allMovies}">
-                    <a href="${pageContext.request.contextPath}/movies?id=${movie.movieId}" class="movie-card">
-                        <div class="movie-poster">
-                            <c:choose>
-                                <c:when test="${not empty movie.posterUrl}">
-                                    <img src="${movie.posterUrl}" alt="${movie.title}" loading="lazy">
-                                </c:when>
-                                <c:otherwise>
+            <% if (watchlist == null || watchlist.isEmpty()) { %>
+
+                <p class="empty-state">
+                    Your watchlist is empty.
+                    <a href="<%= request.getContextPath() %>/movies">Browse movies</a> to add some.
+                </p>
+
+            <% } else { %>
+
+                <div class="movie-grid">
+
+                    <% for (Movie movie : watchlist) { %>
+
+                        <a href="<%= request.getContextPath() %>/movies?id=<%= movie.getMovieId() %>"
+                           class="movie-card">
+
+                            <div class="movie-poster">
+                                <%
+                                    String posterSrc = getPosterSrc(request, movie);
+                                %>
+
+                                <% if (posterSrc != null && !posterSrc.trim().isEmpty()) { %>
+                                    <img src="<%= posterSrc %>"
+                                         alt="<%= movie.getTitle() %>"
+                                         loading="lazy">
+                                <% } else { %>
                                     <div class="poster-placeholder">▶</div>
-                                </c:otherwise>
-                            </c:choose>
-                            <div class="movie-overlay">
-                                <span class="movie-rating">${movie.starRating}</span>
-                            </div>
-                        </div>
-                        <div class="movie-info">
-                            <h3 class="movie-title">${movie.title}</h3>
-                            <p class="movie-meta">${movie.genre} · ${movie.releaseYear}</p>
-                        </div>
-                    </a>
-                </c:forEach>
-            </div>
-        </div>
-    </section>
+                                <% } %>
 
+                                <div class="movie-overlay">
+                                    <span class="movie-rating">
+                                        <%= movie.getStarRating() %>
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div class="movie-info">
+                                <h3 class="movie-title"><%= movie.getTitle() %></h3>
+                                <p class="movie-meta">
+                                    <%= movie.getGenre() %> · <%= movie.getReleaseYear() %>
+                                </p>
+                            </div>
+
+                        </a>
+
+                    <% } %>
+
+                </div>
+
+            <% } %>
+        </section>
+
+        <!-- All Movies Section -->
+        <section class="catalog-section">
+            <h2 class="section-title">All Movies</h2>
+
+            <% if (allMovies == null || allMovies.isEmpty()) { %>
+
+                <p class="empty-state">No movies found.</p>
+
+            <% } else { %>
+
+                <div class="movie-grid">
+
+                    <% for (Movie movie : allMovies) { %>
+
+                        <a href="<%= request.getContextPath() %>/movies?id=<%= movie.getMovieId() %>"
+                           class="movie-card">
+
+                            <div class="movie-poster">
+                                <%
+                                    String posterSrc = getPosterSrc(request, movie);
+                                %>
+
+                                <% if (posterSrc != null && !posterSrc.trim().isEmpty()) { %>
+                                    <img src="<%= posterSrc %>"
+                                         alt="<%= movie.getTitle() %>"
+                                         loading="lazy">
+                                <% } else { %>
+                                    <div class="poster-placeholder">▶</div>
+                                <% } %>
+
+                                <div class="movie-overlay">
+                                    <span class="movie-rating">
+                                        <%= movie.getStarRating() %>
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div class="movie-info">
+                                <h3 class="movie-title"><%= movie.getTitle() %></h3>
+                                <p class="movie-meta">
+                                    <%= movie.getGenre() %> · <%= movie.getReleaseYear() %>
+                                </p>
+                            </div>
+
+                        </a>
+
+                    <% } %>
+
+                </div>
+
+            <% } %>
+        </section>
+
+    </div>
 </main>
 
-<%-- ═══════════════════ FOOTER ═══════════════════ --%>
 <footer class="site-footer">
     <div class="container">
         <p>&copy; 2025 StreamLined. Built with Java MVC.</p>

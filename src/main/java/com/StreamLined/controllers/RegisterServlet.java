@@ -1,117 +1,142 @@
 package com.StreamLined.controllers;
 
+import com.StreamLined.model.User;
 import com.StreamLined.services.UserService;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
+
 import java.io.IOException;
 import java.sql.SQLException;
 
 /**
  * RegisterServlet
- * GET  /register → shows the registration page
- * POST /register → validates input, creates account, redirects to login
+ * GET  /register -> shows the registration page
+ * POST /register -> validates input, creates account, redirects to login
  */
 @WebServlet("/register")
 public class RegisterServlet extends HttpServlet {
 
-    /**
-	 * 
-	 */
-	private static final long serialVersionUID = 1L;
-	private final UserService userService = new UserService();
+    private static final long serialVersionUID = 1L;
 
-    // ── GET ─────────────────────────────────────────────────────────────────
+    private final UserService userService = new UserService();
 
+    // GET method: opens register page
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 
+        // If already logged in, redirect user
         HttpSession session = req.getSession(false);
+
         if (session != null && session.getAttribute("user") != null) {
-            resp.sendRedirect(req.getContextPath() + "/dashboard");
+            User user = (User) session.getAttribute("user");
+
+            if (user.isAdmin()) {
+                resp.sendRedirect(req.getContextPath() + "/admin");
+            } else {
+                resp.sendRedirect(req.getContextPath() + "/dashboard");
+            }
             return;
         }
+
         req.getRequestDispatcher("/WEB-INF/pages/register.jsp").forward(req, resp);
     }
 
-    // ── POST ────────────────────────────────────────────────────────────────
-
+    // POST method: runs after clicking register button
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 
-        String username  = req.getParameter("username");
-        String email     = req.getParameter("email");
-        String password  = req.getParameter("password");
-        String confirm   = req.getParameter("confirmPassword");
+        String username = req.getParameter("username");
+        String email = req.getParameter("email");
+        String password = req.getParameter("password");
+        String confirmPassword = req.getParameter("confirmPassword");
 
-        // ── Input validation ─────────────────────────────────────────────
+        // Keep previous values if error happens
+        req.setAttribute("prevUsername", username);
+        req.setAttribute("prevEmail", email);
 
-        if (isBlank(username) || isBlank(email) || isBlank(password) || isBlank(confirm)) {
-            forward(req, resp, "All fields are required.");
+        // Empty field validation
+        if (isBlank(username) || isBlank(email) || isBlank(password) || isBlank(confirmPassword)) {
+            forwardWithError(req, resp, "All fields are required.");
             return;
         }
 
-        if (username.trim().length() < 3 || username.trim().length() > 50) {
-            forward(req, resp, "Username must be between 3 and 50 characters.");
+        username = username.trim();
+        email = email.trim();
+
+        // Username validation
+        if (username.length() < 3 || username.length() > 50) {
+            forwardWithError(req, resp, "Username must be between 3 and 50 characters.");
             return;
         }
 
-        if (!email.trim().matches("^[\\w.+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$")) {
-            forward(req, resp, "Please enter a valid email address.");
+        // Email validation
+        if (!email.matches("^[\\w.+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$")) {
+            forwardWithError(req, resp, "Please enter a valid email address.");
             return;
         }
 
+        // Password validation
         if (password.length() < 6) {
-            forward(req, resp, "Password must be at least 6 characters.");
+            forwardWithError(req, resp, "Password must be at least 6 characters.");
             return;
         }
 
-        if (!password.equals(confirm)) {
-            forward(req, resp, "Passwords do not match.");
+        // Confirm password validation
+        if (!password.equals(confirmPassword)) {
+            forwardWithError(req, resp, "Passwords do not match.");
             return;
         }
 
         try {
-            if (userService.usernameExists(username.trim())) {
-                forward(req, resp, "That username is already taken. Please choose another.");
+            // Check duplicate username
+            if (userService.usernameExists(username)) {
+                forwardWithError(req, resp, "That username is already taken. Please choose another.");
                 return;
             }
 
-            if (userService.emailExists(email.trim())) {
-                forward(req, resp, "An account with that email already exists.");
+            // Check duplicate email
+            if (userService.emailExists(email)) {
+                forwardWithError(req, resp, "An account with that email already exists.");
                 return;
             }
 
-            boolean success = userService.register(username.trim(), email.trim(), password);
+            // Register user
+            boolean success = userService.register(username, email, password);
 
             if (success) {
-                // Pass a success message to the login page
-                req.getSession().setAttribute("successMsg", "Account created! Please log in.");
+                // Green success message for login page
+                req.getSession().setAttribute("successMsg", "Account created successfully. Please login.");
                 resp.sendRedirect(req.getContextPath() + "/login");
-            } else {
-                forward(req, resp, "Registration failed. Please try again.");
+                return;
             }
 
+            forwardWithError(req, resp, "Registration failed. Please try again.");
+
         } catch (SQLException e) {
-            forward(req, resp, "Something went wrong. Please try again later.");
+            e.printStackTrace();
+            forwardWithError(req, resp, "Something went wrong. Please try again later.");
         }
     }
 
-    // ── Helpers ─────────────────────────────────────────────────────────────
-
-    private boolean isBlank(String s) {
-        return s == null || s.isBlank();
+    // Helper method to check blank values
+    private boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
     }
 
-    private void forward(HttpServletRequest req, HttpServletResponse resp, String error)
+    // Helper method to send error back to register.jsp
+    private void forwardWithError(HttpServletRequest req, HttpServletResponse resp, String error)
             throws ServletException, IOException {
+
         req.setAttribute("error", error);
-        // Re-populate fields so the user doesn't have to retype everything
+
+        // Keep typed values after error
         req.setAttribute("prevUsername", req.getParameter("username"));
-        req.setAttribute("prevEmail",    req.getParameter("email"));
+        req.setAttribute("prevEmail", req.getParameter("email"));
+
         req.getRequestDispatcher("/WEB-INF/pages/register.jsp").forward(req, resp);
     }
 }

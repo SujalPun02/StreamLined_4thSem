@@ -7,29 +7,29 @@ import com.StreamLined.services.MovieService;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
+
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.List;
 
 /**
  * DashboardServlet
- * GET /dashboard → loads top movies + watchlist and forwards to dashboard.jsp
+ * GET /dashboard -> loads top movies, all movies, and watchlist
  */
 @WebServlet("/dashboard")
 public class DashboardServlet extends HttpServlet {
 
-    /**
-	 * 
-	 */
-	private static final long serialVersionUID = 1L;
-	private final MovieService movieService = new MovieService();
+    private static final long serialVersionUID = 1L;
+
+    private final MovieService movieService = new MovieService();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 
-        // Guard: must be logged in
+        // Check if user is logged in
         HttpSession session = req.getSession(false);
+
         if (session == null || session.getAttribute("user") == null) {
             resp.sendRedirect(req.getContextPath() + "/login");
             return;
@@ -47,7 +47,8 @@ public class DashboardServlet extends HttpServlet {
             req.setAttribute("watchlist", watchlist);
 
         } catch (SQLException e) {
-            req.setAttribute("error", "Could not load movies. Please try again.");
+            e.printStackTrace();
+            req.setAttribute("error", "Could not load movies. Please check database tables.");
         }
 
         req.getRequestDispatcher("/WEB-INF/pages/dashboard.jsp").forward(req, resp);

@@ -2,45 +2,40 @@ package com.StreamLined.config;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.SQLException;
 
 /**
  * DBConfig
- * Centralises all database connection logic.
- * Change the constants below to match your local MySQL setup.
+ * Handles database connection for StreamLined project.
  */
 public class DBConfig {
 
-    // ── Connection settings ────────────────────────────────────────────────
-	private static final String DB_NAME = "streamlined";
-	private static final String URL = "jdbc:mysql://127.0.0.1:3306/"+DB_NAME;
-    private static final String USERNAME = "root";       // ← your MySQL username
-    private static final String PASSWORD = "";           // ← your MySQL password
+    // Database name must match phpMyAdmin database name
+    private static final String DB_NAME = "streamlined";
 
-    // Static block: load the JDBC driver once when the class is first used
+    private static final String URL =
+            "jdbc:mysql://localhost:3306/" + DB_NAME + "?useSSL=false&serverTimezone=UTC";
+
+    private static final String USERNAME = "root";
+    private static final String PASSWORD = "";
+
+    // Load MySQL driver once
     static {
         try {
             Class.forName("com.mysql.cj.jdbc.Driver");
+            System.out.println("MySQL JDBC Driver Loaded Successfully!");
         } catch (ClassNotFoundException e) {
-            throw new RuntimeException("MySQL JDBC driver not found. "
-                    + "Add mysql-connector-java to your /WEB-INF/lib folder.", e);
+            throw new RuntimeException("MySQL JDBC Driver not found. Check your pom.xml dependency.", e);
         }
     }
 
     /**
-     * Returns a live Connection. The caller is responsible for closing it
-     * (use try-with-resources or call conn.close() in a finally block).
+     * Returns database connection.
+     * Caller must close the connection using try-with-resources.
      */
-    public static Connection getConnection() {
-        Connection conn = null;
-
-        try {
-            Class.forName("com.mysql.cj.jdbc.Driver");
-            conn = DriverManager.getConnection(URL, USERNAME, PASSWORD);
-            System.out.println("Database Connected!");
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
+    public static Connection getConnection() throws SQLException {
+        Connection conn = DriverManager.getConnection(URL, USERNAME, PASSWORD);
+        System.out.println("Database Connected Successfully!");
         return conn;
     }
 }

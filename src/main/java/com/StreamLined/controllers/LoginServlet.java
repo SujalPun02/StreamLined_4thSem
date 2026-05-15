@@ -6,70 +6,88 @@ import com.StreamLined.services.UserService;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
+
 import java.io.IOException;
 import java.sql.SQLException;
 
 /**
  * LoginServlet
- * GET  /login  → shows the login page
- * POST /login  → validates credentials, creates session, redirects to dashboard
+ * GET  /login  -> shows login page
+ * POST /login  -> checks username/email and password
  */
 @WebServlet("/login")
 public class LoginServlet extends HttpServlet {
 
-    /**
-	 * 
-	 */
-	private static final long serialVersionUID = 1L;
-	private final UserService userService = new UserService();
+    private static final long serialVersionUID = 1L;
 
-    // ── GET ─────────────────────────────────────────────────────────────────
+    private final UserService userService = new UserService();
 
+    // GET method: opens login page
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 
-        // If already logged in, go straight to dashboard
+        // If user is already logged in, send to dashboard/admin
         HttpSession session = req.getSession(false);
+
         if (session != null && session.getAttribute("user") != null) {
-            resp.sendRedirect(req.getContextPath() + "/dashboard");
+            User user = (User) session.getAttribute("user");
+
+            if (user.isAdmin()) {
+                resp.sendRedirect(req.getContextPath() + "/admin");
+            } else {
+                resp.sendRedirect(req.getContextPath() + "/dashboard");
+            }
             return;
         }
+
+        // Show login page
         req.getRequestDispatcher("/WEB-INF/pages/login.jsp").forward(req, resp);
     }
 
-    // ── POST ────────────────────────────────────────────────────────────────
-
+    // POST method: runs after clicking Sign In button
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 
-        String identifier = req.getParameter("identifier"); // username or email
-        String password   = req.getParameter("password");
+        String identifier = req.getParameter("identifier");
+        String password = req.getParameter("password");
 
-        // Basic null / empty guard
-        if (identifier == null || identifier.isBlank() ||
-            password   == null || password.isBlank()) {
-            req.setAttribute("error", "Please fill in all fields.");
+        // Keep typed username/email after error
+        req.setAttribute("identifier", identifier);
+
+        // Empty field validation
+        if (identifier == null || identifier.trim().isEmpty()
+                || password == null || password.trim().isEmpty()) {
+
+            req.setAttribute("error", "Please enter username/email and password.");
             req.getRequestDispatcher("/WEB-INF/pages/login.jsp").forward(req, resp);
             return;
         }
 
         try {
-            User user = userService.login(identifier, password);
+            // Check login from database/service
+            User user = userService.login(identifier.trim(), password);
 
+            // Wrong username/email or password
             if (user == null) {
                 req.setAttribute("error", "Invalid username/email or password.");
                 req.getRequestDispatcher("/WEB-INF/pages/login.jsp").forward(req, resp);
                 return;
             }
 
-            // Create a new session and store the user object
-            HttpSession session = req.getSession(true);
-            session.setAttribute("user", user);
-            session.setMaxInactiveInterval(30 * 60); // 30 minutes
+            // Remove old session if exists
+            HttpSession oldSession = req.getSession(false);
+            if (oldSession != null) {
+                oldSession.invalidate();
+            }
 
-            // Admins go to admin panel; regular users go to dashboard
+            // Create new session after successful login
+            HttpSession newSession = req.getSession(true);
+            newSession.setAttribute("user", user);
+            newSession.setMaxInactiveInterval(30 * 60); // 30 minutes
+
+            // Redirect based on user role
             if (user.isAdmin()) {
                 resp.sendRedirect(req.getContextPath() + "/admin");
             } else {
@@ -77,6 +95,8 @@ public class LoginServlet extends HttpServlet {
             }
 
         } catch (SQLException e) {
+            e.printStackTrace();
+
             req.setAttribute("error", "Something went wrong. Please try again later.");
             req.getRequestDispatcher("/WEB-INF/pages/login.jsp").forward(req, resp);
         }

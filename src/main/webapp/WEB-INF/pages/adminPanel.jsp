@@ -1,61 +1,116 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
+<%@ page import="java.util.List" %>
+<%@ page import="com.StreamLined.model.Movie" %>
+<%@ page import="com.StreamLined.model.User" %>
+
+<%
+    User user = (User) session.getAttribute("user");
+
+    if (user == null) {
+        response.sendRedirect(request.getContextPath() + "/login");
+        return;
+    }
+
+    if (!user.isAdmin()) {
+        response.sendRedirect(request.getContextPath() + "/dashboard");
+        return;
+    }
+
+    List<Movie> movies = (List<Movie>) request.getAttribute("movies");
+    Movie editMovie = (Movie) request.getAttribute("editMovie");
+
+    String adminError = (String) session.getAttribute("adminError");
+    String errorMsg = (String) request.getAttribute("error");
+
+    boolean isEdit = editMovie != null;
+
+    String title = "";
+    String genre = "";
+    String synopsis = "";
+    String releaseYear = "";
+    String rating = "";
+    String posterUrl = "";
+    String trailerUrl = "";
+
+    if (isEdit) {
+        title = editMovie.getTitle() == null ? "" : editMovie.getTitle();
+        genre = editMovie.getGenre() == null ? "" : editMovie.getGenre();
+        synopsis = editMovie.getSynopsis() == null ? "" : editMovie.getSynopsis();
+        releaseYear = String.valueOf(editMovie.getReleaseYear());
+        rating = String.valueOf(editMovie.getRating());
+        posterUrl = editMovie.getPosterUrl() == null ? "" : editMovie.getPosterUrl();
+        trailerUrl = editMovie.getTrailerUrl() == null ? "" : editMovie.getTrailerUrl();
+    }
+%>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>StreamLined – Admin Panel</title>
-    <link rel="stylesheet" href="${pageContext.request.contextPath}/style.css">
+    <link rel="stylesheet" href="<%= request.getContextPath() %>/style.css">
 </head>
+
 <body>
 
 <header class="site-header">
     <div class="header-inner">
-        <a href="${pageContext.request.contextPath}/dashboard" class="site-logo">
+
+        <a href="<%= request.getContextPath() %>/dashboard" class="site-logo">
             <span class="logo-icon">▶</span> StreamLined
         </a>
+
         <nav class="site-nav">
-            <a href="${pageContext.request.contextPath}/dashboard">Home</a>
-            <a href="${pageContext.request.contextPath}/movies">Movies</a>
-            <a href="${pageContext.request.contextPath}/admin" class="active">Admin</a>
+            <a href="<%= request.getContextPath() %>/dashboard">Home</a>
+            <a href="<%= request.getContextPath() %>/movies">Movies</a>
+            <a href="<%= request.getContextPath() %>/admin" class="active">Admin</a>
         </nav>
+
         <div class="header-user">
-            <span><strong>${sessionScope.user.username}</strong>
-                <span class="badge badge-admin">Admin</span>
-            </span>
-            <a href="${pageContext.request.contextPath}/logout" class="btn btn-outline btn-sm">Logout</a>
+            <span>Hi, <strong><%= user.getUsername() %></strong> Admin</span>
+            <a href="<%= request.getContextPath() %>/logout" class="btn btn-outline btn-sm">Logout</a>
         </div>
+
     </div>
 </header>
 
 <main class="main-content">
-<div class="admin-wrapper">
+    <div class="container">
 
-    <div class="admin-header">
-        <div>
-            <h1 class="section-title" style="margin-bottom:4px">Admin Panel</h1>
-            <p style="color:var(--text-secondary);font-size:14px">Manage the StreamLined movie catalog</p>
-        </div>
-        <a href="${pageContext.request.contextPath}/movies" class="btn btn-outline">← View Site</a>
-    </div>
+        <h1 class="section-title">Admin Panel</h1>
+        <p class="auth-subtitle">Manage the StreamLined movie catalog</p>
 
-    <!-- Alerts -->
-    <c:if test="${not empty sessionScope.adminError}">
-        <div class="alert alert-error">${sessionScope.adminError}</div>
-        <c:remove var="adminError" scope="session"/>
-    </c:if>
-    <c:if test="${not empty requestScope.error}">
-        <div class="alert alert-error">${requestScope.error}</div>
-    </c:if>
+        <a href="<%= request.getContextPath() %>/movies" class="btn btn-ghost">
+            ← View Site
+        </a>
 
-    <div class="admin-grid">
+        <% if (adminError != null && !adminError.trim().isEmpty()) { %>
+            <div class="alert alert-error">
+                <%= adminError %>
+            </div>
+        <%
+            session.removeAttribute("adminError");
+        } %>
 
-        <!-- ═══════════ MOVIE TABLE ═══════════ -->
-        <div>
+        <% if (errorMsg != null && !errorMsg.trim().isEmpty()) { %>
+            <div class="alert alert-error">
+                <%= errorMsg %>
+            </div>
+        <% } %>
 
-            <div class="data-table-wrap">
-                <table class="data-table">
-                    <thead>
+        <section class="catalog-section">
+
+            <h2 class="section-title">Movie List</h2>
+
+            <% if (movies == null || movies.isEmpty()) { %>
+
+                <p class="empty-state">No movies yet. Add one below.</p>
+
+            <% } else { %>
+
+                <div class="admin-table-wrapper">
+                    <table class="admin-table">
+                        <thead>
                         <tr>
                             <th>Poster</th>
                             <th>Title</th>
@@ -64,140 +119,171 @@
                             <th>Rating</th>
                             <th>Actions</th>
                         </tr>
-                    </thead>
-                    <tbody>
-                        <c:choose>
-                            <c:when test="${empty requestScope.movies}">
-                                <tr><td colspan="6" class="empty-state">No movies yet. Add one →</td></tr>
-                            </c:when>
-                            <c:otherwise>
-                                <c:forEach var="movie" items="${requestScope.movies}">
-                                    <tr>
-                                        <td>
-                                            <c:choose>
-                                                <c:when test="${not empty movie.posterUrl}">
-                                                    <img src="${movie.posterUrl}" alt="${movie.title}" class="movie-thumb">
-                                                </c:when>
-                                                <c:otherwise>
-                                                    <div class="movie-thumb" style="display:flex;align-items:center;justify-content:center;color:var(--text-muted)">▶</div>
-                                                </c:otherwise>
-                                            </c:choose>
-                                        </td>
-                                        <td class="td-title">${movie.title}</td>
-                                        <td>${movie.genre}</td>
-                                        <td>${movie.releaseYear}</td>
-                                        <td><span class="movie-rating">${movie.starRating}</span></td>
-                                        <td>
-                                            <div class="actions">
-                                                <!-- Edit: GET to pre-populate form -->
-                                                <a href="${pageContext.request.contextPath}/admin?edit=${movie.movieId}"
-                                                   class="btn btn-ghost btn-sm">Edit</a>
+                        </thead>
 
-                                                <!-- Delete: POST with confirmation -->
-                                                <form action="${pageContext.request.contextPath}/admin" method="post"
-                                                      onsubmit="return confirm('Delete \'${movie.title}\'? This cannot be undone.')">
-                                                    <input type="hidden" name="action"  value="delete">
-                                                    <input type="hidden" name="movieId" value="${movie.movieId}">
-                                                    <button type="submit" class="btn btn-danger btn-sm">Delete</button>
-                                                </form>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                </c:forEach>
-                            </c:otherwise>
-                        </c:choose>
-                    </tbody>
-                </table>
-            </div>
-        </div>
+                        <tbody>
+                        <% for (Movie movie : movies) { %>
+                            <tr>
 
-        <!-- ═══════════ ADD / EDIT FORM ═══════════ -->
-        <div class="admin-form-card">
-            <h3>
-                <c:choose>
-                    <c:when test="${not empty requestScope.editMovie}">Edit Movie</c:when>
-                    <c:otherwise>Add New Movie</c:otherwise>
-                </c:choose>
-            </h3>
+                                <!-- Poster Column -->
+                                <td>
+                                    <%
+                                        String rowPosterUrl = movie.getPosterUrl();
+                                        String rowPosterSrc = "";
 
-            <form action="${pageContext.request.contextPath}/admin" method="post">
+                                        if (rowPosterUrl != null && !rowPosterUrl.trim().isEmpty()) {
+                                            if (rowPosterUrl.startsWith("http://") || rowPosterUrl.startsWith("https://")) {
+                                                rowPosterSrc = rowPosterUrl;
+                                            } else {
+                                                rowPosterSrc = request.getContextPath() + "/" + rowPosterUrl;
+                                            }
+                                        }
+                                    %>
 
-                <c:choose>
-                    <c:when test="${not empty requestScope.editMovie}">
-                        <input type="hidden" name="action"  value="update">
-                        <input type="hidden" name="movieId" value="${requestScope.editMovie.movieId}">
-                    </c:when>
-                    <c:otherwise>
-                        <input type="hidden" name="action" value="add">
-                    </c:otherwise>
-                </c:choose>
+                                    <% if (rowPosterSrc != null && !rowPosterSrc.trim().isEmpty()) { %>
+                                        <img src="<%= rowPosterSrc %>"
+                                             alt="<%= movie.getTitle() %>"
+                                             style="width:60px; height:80px; object-fit:cover; border-radius:8px;">
+                                    <% } else { %>
+                                        <span>▶</span>
+                                    <% } %>
+                                </td>
+
+                                <td><%= movie.getTitle() %></td>
+                                <td><%= movie.getGenre() %></td>
+                                <td><%= movie.getReleaseYear() %></td>
+                                <td><%= movie.getStarRating() %></td>
+
+                                <td>
+                                    <a href="<%= request.getContextPath() %>/admin?edit=<%= movie.getMovieId() %>"
+                                       class="btn btn-outline btn-sm">
+                                        Edit
+                                    </a>
+
+                                    <form action="<%= request.getContextPath() %>/admin"
+                                          method="post"
+                                          style="display:inline;">
+                                        <input type="hidden" name="action" value="delete">
+                                        <input type="hidden" name="movieId" value="<%= movie.getMovieId() %>">
+
+                                        <button type="submit"
+                                                class="btn btn-ghost btn-sm"
+                                                onclick="return confirm('Are you sure you want to delete this movie?');">
+                                            Delete
+                                        </button>
+                                    </form>
+                                </td>
+
+                            </tr>
+                        <% } %>
+                        </tbody>
+                    </table>
+                </div>
+
+            <% } %>
+
+        </section>
+
+        <section class="catalog-section">
+
+            <% if (isEdit) { %>
+                <h2 class="section-title">Edit Movie</h2>
+            <% } else { %>
+                <h2 class="section-title">Add New Movie</h2>
+            <% } %>
+
+            <form action="<%= request.getContextPath() %>/admin" method="post" class="admin-form">
+
+                <% if (isEdit) { %>
+                    <input type="hidden" name="action" value="update">
+                    <input type="hidden" name="movieId" value="<%= editMovie.getMovieId() %>">
+                <% } else { %>
+                    <input type="hidden" name="action" value="add">
+                <% } %>
 
                 <div class="form-group">
                     <label for="title">Title</label>
-                    <input type="text" id="title" name="title" required maxlength="200"
-                           value="${not empty requestScope.editMovie ? requestScope.editMovie.title : ''}">
+                    <input type="text"
+                           id="title"
+                           name="title"
+                           value="<%= title %>"
+                           required>
                 </div>
 
                 <div class="form-group">
                     <label for="genre">Genre</label>
-                    <input type="text" id="genre" name="genre" required maxlength="100"
-                           placeholder="e.g. Action / Sci-Fi"
-                           value="${not empty requestScope.editMovie ? requestScope.editMovie.genre : ''}">
+                    <input type="text"
+                           id="genre"
+                           name="genre"
+                           value="<%= genre %>"
+                           required>
                 </div>
 
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="releaseYear">Year</label>
-                        <input type="number" id="releaseYear" name="releaseYear" required
-                               min="1888" max="2099"
-                               value="${not empty requestScope.editMovie ? requestScope.editMovie.releaseYear : ''}">
-                    </div>
-                    <div class="form-group">
-                        <label for="rating">Rating (0–5)</label>
-                        <input type="number" id="rating" name="rating" required
-                               min="0" max="5" step="0.1"
-                               value="${not empty requestScope.editMovie ? requestScope.editMovie.rating : '0.0'}">
-                    </div>
+                <div class="form-group">
+                    <label for="releaseYear">Year</label>
+                    <input type="number"
+                           id="releaseYear"
+                           name="releaseYear"
+                           value="<%= releaseYear %>"
+                           required>
+                </div>
+
+                <div class="form-group">
+                    <label for="rating">Rating 0–5</label>
+                    <input type="number"
+                           step="0.1"
+                           min="0"
+                           max="5"
+                           id="rating"
+                           name="rating"
+                           value="<%= rating %>"
+                           required>
                 </div>
 
                 <div class="form-group">
                     <label for="synopsis">Synopsis</label>
-                    <textarea id="synopsis" name="synopsis" rows="3">${not empty requestScope.editMovie ? requestScope.editMovie.synopsis : ''}</textarea>
+                    <textarea id="synopsis"
+                              name="synopsis"
+                              required><%= synopsis %></textarea>
                 </div>
 
                 <div class="form-group">
                     <label for="posterUrl">Poster URL</label>
-                    <input type="url" id="posterUrl" name="posterUrl" maxlength="500"
-                           placeholder="https://…"
-                           value="${not empty requestScope.editMovie ? requestScope.editMovie.posterUrl : ''}">
-                    <p class="form-hint">Link to a JPG/PNG image (e.g. TMDB poster URL)</p>
+                    <input type="text"
+                           id="posterUrl"
+                           name="posterUrl"
+                           value="<%= posterUrl %>"
+                           placeholder="Paste real poster image URL">
                 </div>
 
                 <div class="form-group">
                     <label for="trailerUrl">Trailer URL</label>
-                    <input type="url" id="trailerUrl" name="trailerUrl" maxlength="500"
-                           placeholder="https://youtube.com/…"
-                           value="${not empty requestScope.editMovie ? requestScope.editMovie.trailerUrl : ''}">
+                    <input type="text"
+                           id="trailerUrl"
+                           name="trailerUrl"
+                           value="<%= trailerUrl %>"
+                           placeholder="YouTube trailer link">
                 </div>
 
-                <div style="display:flex;gap:10px;margin-top:4px">
-                    <button type="submit" class="btn btn-primary" style="flex:1">
-                        <c:choose>
-                            <c:when test="${not empty requestScope.editMovie}">Save Changes</c:when>
-                            <c:otherwise>Add Movie</c:otherwise>
-                        </c:choose>
+                <% if (isEdit) { %>
+                    <button type="submit" class="btn btn-primary">
+                        Save Changes
                     </button>
-                    <c:if test="${not empty requestScope.editMovie}">
-                        <a href="${pageContext.request.contextPath}/admin"
-                           class="btn btn-ghost">Cancel</a>
-                    </c:if>
-                </div>
+
+                    <a href="<%= request.getContextPath() %>/admin" class="btn btn-ghost">
+                        Cancel
+                    </a>
+                <% } else { %>
+                    <button type="submit" class="btn btn-primary">
+                        Add Movie
+                    </button>
+                <% } %>
 
             </form>
-        </div>
+
+        </section>
 
     </div>
-</div>
 </main>
 
 <footer class="site-footer">

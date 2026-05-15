@@ -8,145 +8,202 @@ import com.StreamLined.services.MovieService;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
+
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.List;
 
 /**
- * MovieServlet — handles the movie catalog, detail page, search,
- *               watchlist toggles, and review submissions.
- *
- * GET  /movies              → full movie catalog
- * GET  /movies?search=query → search results
- * GET  /movies?id=N         → movie detail page
- * POST /movies?action=addWatchlist    → add to watchlist
- * POST /movies?action=removeWatchlist → remove from watchlist
- * POST /movies?action=review          → submit a review
+ * MovieServlet
+ * GET  /movies              -> full movie catalog
+ * GET  /movies?search=query -> search results
+ * GET  /movies?id=N         -> movie detail page
+ * POST /movies              -> watchlist and review actions
  */
 @WebServlet("/movies")
 public class MovieServlet extends HttpServlet {
 
-    /**
-	 * 
-	 */
-	private static final long serialVersionUID = 1L;
-	private final MovieService movieService = new MovieService();
+    private static final long serialVersionUID = 1L;
 
-    // ── GET ─────────────────────────────────────────────────────────────────
+    private final MovieService movieService = new MovieService();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 
-        // Guard
         HttpSession session = req.getSession(false);
+
         if (session == null || session.getAttribute("user") == null) {
             resp.sendRedirect(req.getContextPath() + "/login");
             return;
         }
 
-        String idParam     = req.getParameter("id");
+        String idParam = req.getParameter("id");
         String searchParam = req.getParameter("search");
 
         try {
-            if (idParam != null) {
-                // ── Detail page ──────────────────────────────────────────
-                int movieId = Integer.parseInt(idParam);
+
+            // Movie detail page
+            if (idParam != null && !idParam.trim().isEmpty()) {
+
+                int movieId = Integer.parseInt(idParam.trim());
+
+                System.out.println("Clicked movie id: " + movieId);
+
                 Movie movie = movieService.getMovieById(movieId);
 
+                // Fallback: if getMovieById fails, search from all movies
                 if (movie == null) {
-                    resp.sendError(HttpServletResponse.SC_NOT_FOUND, "Movie not found");
+                    List<Movie> allMovies = movieService.getAllMovies();
+
+                    for (Movie m : allMovies) {
+                        if (m.getMovieId() == movieId) {
+                            movie = m;
+                            break;
+                        }
+                    }
+                }
+
+                if (movie == null) {
+                    List<Movie> movies = movieService.getAllMovies();
+
+                    req.setAttribute("movies", movies);
+                    req.setAttribute("error", "Movie not found. Please check movie_id in database.");
+
+                    req.getRequestDispatcher("/WEB-INF/pages/movies.jsp").forward(req, resp);
                     return;
                 }
 
                 User user = (User) session.getAttribute("user");
+
                 boolean inWatchlist = movieService.isInWatchlist(user.getUserId(), movieId);
                 List<Review> reviews = movieService.getReviewsForMovie(movieId);
 
-                req.setAttribute("movie",       movie);
+                req.setAttribute("movie", movie);
                 req.setAttribute("inWatchlist", inWatchlist);
-                req.setAttribute("reviews",     reviews);
-                req.getRequestDispatcher("/WEB-INF/pages/movieDetail.jsp").forward(req, resp);
+                req.setAttribute("reviews", reviews);
 
-            } else if (searchParam != null && !searchParam.isBlank()) {
-                // ── Search ───────────────────────────────────────────────
-                List<Movie> results = movieService.searchMovies(searchParam);
-                req.setAttribute("movies",      results);
-                req.setAttribute("searchQuery", searchParam);
-                req.getRequestDispatcher("/WEB-INF/pages/home.jsp").forward(req, resp);
-
-            } else {
-                // ── Full catalog ─────────────────────────────────────────
-                List<Movie> movies = movieService.getAllMovies();
-                req.setAttribute("movies", movies);
-                req.getRequestDispatcher("/WEB-INF/pages/home.jsp").forward(req, resp);
+                req.getRequestDispatcher("/WEB-INF/pages/movieDetails.jsp").forward(req, resp);
+                return;
             }
 
+            // Search movies
+            if (searchParam != null && !searchParam.trim().isEmpty()) {
+
+                List<Movie> results = movieService.searchMovies(searchParam.trim());
+
+                req.setAttribute("movies", results);
+                req.setAttribute("searchQuery", searchParam.trim());
+
+                req.getRequestDispatcher("/WEB-INF/pages/movies.jsp").forward(req, resp);
+                return;
+            }
+
+            // Full movie catalog
+            List<Movie> movies = movieService.getAllMovies();
+
+            req.setAttribute("movies", movies);
+
+            req.getRequestDispatcher("/WEB-INF/pages/movies.jsp").forward(req, resp);
+
         } catch (NumberFormatException e) {
-            resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid movie ID");
+            e.printStackTrace();
+
+            List<Movie> movies = null;
+
+            try {
+                movies = movieService.getAllMovies();
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+            }
+
+            req.setAttribute("movies", movies);
+            req.setAttribute("error", "Invalid movie ID.");
+
+            req.getRequestDispatcher("/WEB-INF/pages/movies.jsp").forward(req, resp);
+
         } catch (SQLException e) {
-            req.setAttribute("error", "Something went wrong loading movies.");
-            req.getRequestDispatcher("/WEB-INF/pages/home.jsp").forward(req, resp);
+            e.printStackTrace();
+
+            req.setAttribute("error", "Something went wrong loading movies. Please check database and console.");
+            req.getRequestDispatcher("/WEB-INF/pages/movies.jsp").forward(req, resp);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+
+            req.setAttribute("error", "Unexpected error occurred. Please check console.");
+            req.getRequestDispatcher("/WEB-INF/pages/movies.jsp").forward(req, resp);
         }
     }
-
-    // ── POST ────────────────────────────────────────────────────────────────
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 
         HttpSession session = req.getSession(false);
+
         if (session == null || session.getAttribute("user") == null) {
             resp.sendRedirect(req.getContextPath() + "/login");
             return;
         }
 
-        User   user   = (User) session.getAttribute("user");
+        User user = (User) session.getAttribute("user");
+
         String action = req.getParameter("action");
         String idParam = req.getParameter("movieId");
 
-        if (idParam == null || action == null) {
+        if (action == null || action.trim().isEmpty()
+                || idParam == null || idParam.trim().isEmpty()) {
+
             resp.sendRedirect(req.getContextPath() + "/movies");
             return;
         }
 
         int movieId;
+
         try {
-            movieId = Integer.parseInt(idParam);
+            movieId = Integer.parseInt(idParam.trim());
         } catch (NumberFormatException e) {
             resp.sendRedirect(req.getContextPath() + "/movies");
             return;
         }
 
         try {
-            switch (action) {
 
-                case "addWatchlist":
-                    movieService.addToWatchlist(user.getUserId(), movieId);
-                    break;
+            if ("addWatchlist".equals(action)) {
 
-                case "removeWatchlist":
-                    movieService.removeFromWatchlist(user.getUserId(), movieId);
-                    break;
+                movieService.addToWatchlist(user.getUserId(), movieId);
 
-                case "review":
-                    String ratingStr = req.getParameter("rating");
-                    String comment   = req.getParameter("comment");
-                    if (ratingStr != null && !comment.isBlank()) {
-                        Review review = new Review(user.getUserId(), movieId,
-                                Integer.parseInt(ratingStr), comment.trim());
-                        movieService.addReview(review);
-                    }
-                    break;
+            } else if ("removeWatchlist".equals(action)) {
 
-                default:
-                    // Unknown action — ignore
-                    break;
+                movieService.removeFromWatchlist(user.getUserId(), movieId);
+
+            } else if ("review".equals(action)) {
+
+                String ratingStr = req.getParameter("rating");
+                String comment = req.getParameter("comment");
+
+                if (ratingStr != null && !ratingStr.trim().isEmpty()
+                        && comment != null && !comment.trim().isEmpty()) {
+
+                    int rating = Integer.parseInt(ratingStr.trim());
+
+                    Review review = new Review(
+                            user.getUserId(),
+                            movieId,
+                            rating,
+                            comment.trim()
+                    );
+
+                    movieService.addReview(review);
+                }
             }
 
         } catch (SQLException e) {
-            // Log silently; redirect anyway to prevent error page exposure
+            e.printStackTrace();
+
+        } catch (NumberFormatException e) {
+            e.printStackTrace();
         }
 
         resp.sendRedirect(req.getContextPath() + "/movies?id=" + movieId);
