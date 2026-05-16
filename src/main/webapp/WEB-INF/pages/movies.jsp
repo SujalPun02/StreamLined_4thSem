@@ -56,6 +56,9 @@
         <nav class="site-nav">
             <a href="<%= request.getContextPath() %>/dashboard">Home</a>
             <a href="<%= request.getContextPath() %>/movies" class="active">Movies</a>
+            <a href="<%= request.getContextPath() %>/profile">Profile</a>
+            <a href="<%= request.getContextPath() %>/about">About</a>
+			<a href="<%= request.getContextPath() %>/contact">Contact</a>
 
             <% if (loggedUser.isAdmin()) { %>
                 <a href="<%= request.getContextPath() %>/admin">Admin</a>

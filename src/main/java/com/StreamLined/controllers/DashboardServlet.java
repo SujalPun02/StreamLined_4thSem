@@ -14,7 +14,7 @@ import java.util.List;
 
 /**
  * DashboardServlet
- * GET /dashboard -> loads top movies, all movies, and watchlist
+ * GET /dashboard -> loads movies and forwards to dashboard.jsp
  */
 @WebServlet("/dashboard")
 public class DashboardServlet extends HttpServlet {
@@ -27,7 +27,6 @@ public class DashboardServlet extends HttpServlet {
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 
-        // Check if user is logged in
         HttpSession session = req.getSession(false);
 
         if (session == null || session.getAttribute("user") == null) {
@@ -39,10 +38,12 @@ public class DashboardServlet extends HttpServlet {
 
         try {
             List<Movie> topMovies = movieService.getTopMovies(6);
+            List<Movie> recentlyAddedMovies = movieService.getRecentlyAddedMovies(6);
             List<Movie> allMovies = movieService.getAllMovies();
             List<Movie> watchlist = movieService.getWatchlist(user.getUserId());
 
             req.setAttribute("topMovies", topMovies);
+            req.setAttribute("recentlyAddedMovies", recentlyAddedMovies);
             req.setAttribute("allMovies", allMovies);
             req.setAttribute("watchlist", watchlist);
 

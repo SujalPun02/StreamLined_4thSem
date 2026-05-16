@@ -64,6 +64,11 @@
                        placeholder="Enter your password"
                        required>
             </div>
+            <p class="auth-switch" style="text-align:right; margin-top:8px;">
+    			<a href="<%= request.getContextPath() %>/forgot-password">
+        		Forgot password?
+    			</a>
+			</p>
 
             <button type="submit" class="btn btn-primary btn-block">
                 Sign In

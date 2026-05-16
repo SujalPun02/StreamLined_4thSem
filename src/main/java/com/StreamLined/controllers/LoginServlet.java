@@ -71,7 +71,14 @@ public class LoginServlet extends HttpServlet {
 
             // Wrong username/email or password
             if (user == null) {
-                req.setAttribute("error", "Invalid username/email or password.");
+
+                if (userService.isAccountCurrentlyLocked(identifier)) {
+                    req.setAttribute("error",
+                            "Your account is temporarily locked because of too many wrong login attempts. Please try again after 5 minutes.");
+                } else {
+                    req.setAttribute("error", "Invalid username/email or password.");
+                }
+
                 req.getRequestDispatcher("/WEB-INF/pages/login.jsp").forward(req, resp);
                 return;
             }

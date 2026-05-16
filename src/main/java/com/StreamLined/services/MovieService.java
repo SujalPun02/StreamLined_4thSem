@@ -73,43 +73,54 @@ public class MovieService {
 
     // ── Admin CRUD ──────────────────────────────────────────────────────────
 
-    public void addMovie(Movie m) throws SQLException {
-        String sql = "INSERT INTO movies (title, genre, synopsis, release_year, rating, trailer_url, poster_url) VALUES (?,?,?,?,?,?,?)";
+    public boolean addMovie(Movie movie) throws SQLException {
+        String sql = "INSERT INTO movies (title, genre, synopsis, release_year, rating, trailer_url, poster_url) " +
+                     "VALUES (?, ?, ?, ?, ?, ?, ?)";
+
         try (Connection conn = DBConfig.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, m.getTitle());
-            ps.setString(2, m.getGenre());
-            ps.setString(3, m.getSynopsis());
-            ps.setInt(4, m.getReleaseYear());
-            ps.setDouble(5, m.getRating());
-            ps.setString(6, m.getTrailerUrl());
-            ps.setString(7, m.getPosterUrl());
-            ps.executeUpdate();
+
+            ps.setString(1, movie.getTitle());
+            ps.setString(2, movie.getGenre());
+            ps.setString(3, movie.getSynopsis());
+            ps.setInt(4, movie.getReleaseYear());
+            ps.setDouble(5, movie.getRating());
+            ps.setString(6, movie.getTrailerUrl());
+            ps.setString(7, movie.getPosterUrl());
+
+            return ps.executeUpdate() > 0;
         }
     }
 
-    public void updateMovie(Movie m) throws SQLException {
-        String sql = "UPDATE movies SET title=?, genre=?, synopsis=?, release_year=?, rating=?, trailer_url=?, poster_url=? WHERE movie_id=?";
+    public boolean updateMovie(Movie movie) throws SQLException {
+        String sql = "UPDATE movies SET title = ?, genre = ?, synopsis = ?, release_year = ?, " +
+                     "rating = ?, trailer_url = ?, poster_url = ? WHERE movie_id = ?";
+
         try (Connection conn = DBConfig.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, m.getTitle());
-            ps.setString(2, m.getGenre());
-            ps.setString(3, m.getSynopsis());
-            ps.setInt(4, m.getReleaseYear());
-            ps.setDouble(5, m.getRating());
-            ps.setString(6, m.getTrailerUrl());
-            ps.setString(7, m.getPosterUrl());
-            ps.setInt(8, m.getMovieId());
-            ps.executeUpdate();
+
+            ps.setString(1, movie.getTitle());
+            ps.setString(2, movie.getGenre());
+            ps.setString(3, movie.getSynopsis());
+            ps.setInt(4, movie.getReleaseYear());
+            ps.setDouble(5, movie.getRating());
+            ps.setString(6, movie.getTrailerUrl());
+            ps.setString(7, movie.getPosterUrl());
+            ps.setInt(8, movie.getMovieId());
+
+            return ps.executeUpdate() > 0;
         }
     }
 
-    public void deleteMovie(int movieId) throws SQLException {
+    public boolean deleteMovie(int movieId) throws SQLException {
         String sql = "DELETE FROM movies WHERE movie_id = ?";
+
         try (Connection conn = DBConfig.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
+
             ps.setInt(1, movieId);
-            ps.executeUpdate();
+
+            return ps.executeUpdate() > 0;
         }
     }
 
@@ -227,5 +238,27 @@ public class MovieService {
         m.setPosterUrl(rs.getString("poster_url"));
         m.setCreatedAt(rs.getTimestamp("created_at"));
         return m;
+    }
+    /**
+     * Gets recently added movies.
+     */
+    public List<Movie> getRecentlyAddedMovies(int limit) throws SQLException {
+        List<Movie> movies = new ArrayList<>();
+
+        String sql = "SELECT * FROM movies ORDER BY created_at DESC, movie_id DESC LIMIT ?";
+
+        try (Connection conn = DBConfig.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setInt(1, limit);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    movies.add(mapMovie(rs));
+                }
+            }
+        }
+
+        return movies;
     }
 }

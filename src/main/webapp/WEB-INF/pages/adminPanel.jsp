@@ -21,6 +21,7 @@
 
     String adminError = (String) session.getAttribute("adminError");
     String errorMsg = (String) request.getAttribute("error");
+    String adminSuccess = (String) session.getAttribute("adminSuccess");
 
     boolean isEdit = editMovie != null;
 
@@ -63,6 +64,9 @@
         <nav class="site-nav">
             <a href="<%= request.getContextPath() %>/dashboard">Home</a>
             <a href="<%= request.getContextPath() %>/movies">Movies</a>
+            <a href="<%= request.getContextPath() %>/profile">Profile</a>
+            <a href="<%= request.getContextPath() %>/about">About</a>
+			<a href="<%= request.getContextPath() %>/contact">Contact</a>
             <a href="<%= request.getContextPath() %>/admin" class="active">Admin</a>
         </nav>
 
@@ -91,6 +95,13 @@
         <%
             session.removeAttribute("adminError");
         } %>
+        <% if (adminSuccess != null && !adminSuccess.trim().isEmpty()) { %>
+   			<div class="alert alert-success">
+        		<%= adminSuccess %>
+   			</div>
+		<%
+    		session.removeAttribute("adminSuccess");
+		} %>
 
         <% if (errorMsg != null && !errorMsg.trim().isEmpty()) { %>
             <div class="alert alert-error">
